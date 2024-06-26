@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox,ttk
 import cv2
 import numpy as np
 import os
@@ -23,8 +23,7 @@ if not os.path.exists(attendance_dir):
 
 # Function to register a user
 def register_user(first_name, last_name, index_number):
-    #check if user has already been registered
-    
+    # Check if user has already been registered
     if os.path.isfile(details_file):
         with open(details_file, 'rb') as f:
             details = pickle.load(f)
@@ -94,7 +93,7 @@ def register_user(first_name, last_name, index_number):
 
 # Function to mark attendance
 def mark_attendance():
-    def capture_and_mark():
+    def capture_and_mark(course_code):
         if not os.path.isfile(details_file) or not os.path.isfile(faces_file):
             messagebox.showerror("Error", "User details or face data files not found. Please register first.")
             return
@@ -120,6 +119,16 @@ def mark_attendance():
             except Exception as e:
                 print(f"Could not encode face for user {user['index']}: {e}")
                 continue
+
+        # Display a prompt message
+        prompt_window = tk.Toplevel()
+        prompt_window.title("Attention")
+        prompt_window.geometry("350x150")
+        prompt_window.resizable(False, False)
+        tk.Label(prompt_window, text="Please look directly into the camera and wait...", font=("Helvetica", 12)).pack(pady=20)
+        tk.Button(prompt_window, text="Proceed", command=prompt_window.destroy, font=("Helvetica", 12)).pack(pady=20)
+        prompt_window.grab_set()
+        prompt_window.wait_window()
 
         video = cv2.VideoCapture(0)
 
@@ -147,7 +156,7 @@ def mark_attendance():
                         ts = time.time()
                         date = datetime.fromtimestamp(ts).strftime("%d-%m-%Y")
                         timestamp = datetime.fromtimestamp(ts).strftime("%H:%M:%S")
-                        file_path = os.path.join(attendance_dir, f"Attendance_{date}.csv")
+                        file_path = os.path.join(attendance_dir, f"Attendance_{course_code}_{date}.csv")
                         exist = os.path.isfile(file_path)
 
                         # Check if the user is already marked present in the CSV file
@@ -165,7 +174,7 @@ def mark_attendance():
 
                         if user_detail:
                             attendance = [user_detail['first_name'], user_detail['last_name'], index_number, str(timestamp)]
-                            print(attendance)
+                            
 
                             with open(file_path, "a", newline='') as csvfile:
                                 writer = csv.writer(csvfile)
@@ -195,7 +204,38 @@ def mark_attendance():
         video.release()
         cv2.destroyAllWindows()
 
-    capture_and_mark()
+    def enter_course_code():
+        course_window = tk.Toplevel()
+        course_window.title("Select Course Code")
+        course_window.geometry("400x200")
+        course_window.resizable(False, False)
+
+        tk.Label(course_window, text="Select Course Code:", font=("Helvetica", 12)).pack(pady=5)
+        course_code_var = tk.StringVar(course_window)
+
+        # Read course codes from the file
+        course_codes = []
+        with open('course_codes.txt', 'r') as f:
+            course_codes = [line.strip() for line in f.readlines() if line.strip()]
+
+        if not course_codes:
+            messagebox.showerror("Error", "No course codes found in the file.")
+            course_window.destroy()
+            return
+
+        course_code_var.set(course_codes[0])  # default value
+
+        course_code_menu = ttk.Combobox(course_window, textvariable=course_code_var, values=course_codes, font=("Helvetica", 12))
+        course_code_menu.pack(pady=5)
+
+        def submit_course_code():
+            course_code = course_code_var.get()
+            course_window.destroy()
+            capture_and_mark(course_code)
+
+        tk.Button(course_window, text="Submit", font=("Helvetica", 12, "bold"), command=submit_course_code).pack(pady=20)
+
+    enter_course_code()
 
 # Create the Tkinter GUI
 def main_window():
@@ -240,9 +280,9 @@ def main_window():
     def open_attendance():
         mark_attendance()
 
-    tk.Button(root, text="Register Student", font=("Helvetica", 18, ), command=open_register, width=25, height=2).pack(pady=10)
-    tk.Button(root, text="Mark Attendance", font=("Helvetica", 18, ), command=open_attendance, width=25, height=2).pack(pady=10)
-    tk.Button(root, text="Exit", font=("Helvetica", 18, ), command=root.quit, width=25, height=2).pack(pady=10)
+    tk.Button(root, text="Register Student", font=("Helvetica", 18), command=open_register, width=25, height=2).pack(pady=10)
+    tk.Button(root, text="Mark Attendance", font=("Helvetica", 18), command=open_attendance, width=25, height=2).pack(pady=10)
+    tk.Button(root, text="Exit", font=("Helvetica", 18), command=root.quit, width=25, height=2).pack(pady=10)
 
     root.mainloop()
 
